@@ -12,6 +12,10 @@ public class MyScrollableValueAxis extends NumberAxis {
   @Getter
   @Setter
   private double maxRight;
+  @Override
+  public void resizeRange(double percent, double anchorValue) {
+  setRange(new Range(minLeft, maxRight));
+  }
 
   @Override
   public void resizeRange2(double percent, double anchorValue) {

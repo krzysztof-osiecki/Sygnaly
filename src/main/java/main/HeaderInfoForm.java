@@ -1,3 +1,5 @@
+package main;
+
 import data.HeaderInfo;
 
 import javax.sound.sampled.AudioFormat;

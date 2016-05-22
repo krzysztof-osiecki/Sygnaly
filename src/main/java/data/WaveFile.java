@@ -2,20 +2,25 @@ package data;
 
 
 import lombok.Data;
+import sun.tools.jar.resources.jar_sv;
 
-import javax.sound.sampled.AudioFormat;
-import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.*;
+import javax.swing.*;
+import java.io.File;
 import java.io.IOException;
 
 @Data
-public class WaveFile {
+public class WaveFile implements LineListener {
   private final AudioInputStream loadedWaveFile;
+  private final File file;
   private int selectedChannelNumerOfSamples;
   private byte[] waveData;
   private int[][] samples;
+  private boolean playCompleted;
 
-  public WaveFile(AudioInputStream loadedWaveFile) {
-    this.loadedWaveFile = loadedWaveFile;
+  public WaveFile(File file) throws IOException, UnsupportedAudioFileException, LineUnavailableException {
+    this.loadedWaveFile = AudioSystem.getAudioInputStream(file);
+    this.file = file;
     int frameLength = (int) loadedWaveFile.getFrameLength();
     int frameSize = loadedWaveFile.getFormat().getFrameSize();
     waveData = new byte[frameLength * frameSize];
@@ -42,16 +47,48 @@ public class WaveFile {
     }
   }
 
+  public void play(int from, int to) {
+    try {
+      AudioInputStream audioStream = AudioSystem.getAudioInputStream(file);
+      AudioFormat format = audioStream.getFormat();
+      DataLine.Info info = new DataLine.Info(Clip.class, format);
+      Clip audioClip = (Clip) AudioSystem.getLine(info);
+      audioClip.open(audioStream);
+      audioClip.setFramePosition(from);
+      audioClip.addLineListener(this);
+      audioClip.start();
+      while (!playCompleted) {
+        if (audioClip.getFramePosition() >= to) {
+          audioClip.stop();
+        }
+      }
+      audioClip.close();
+      audioStream.close();
+      playCompleted = false;
+    } catch (Exception e) {
+      JScrollBar scrollBar = new JScrollBar()
+      System.out.printf("Something went wrong during audio play");
+    }
+  }
+
   public AudioFormat getFormat() {
     return loadedWaveFile.getFormat();
   }
 
-  public int getNumberOfSamplesForChannel(int channel) {
-    return samples[channel].length;
+  public int getNumberOfSamples() {
+    return samples[0].length;
   }
 
   private int getSixteenBitSample(int high, int low) {
     return (high << 8) + (low & 0x00ff);
+  }
+
+  @Override
+  public void update(LineEvent event) {
+    LineEvent.Type type = event.getType();
+    if (type == LineEvent.Type.STOP) {
+      playCompleted = true;
+    }
   }
 }
 

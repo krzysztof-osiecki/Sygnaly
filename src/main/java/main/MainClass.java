@@ -1,3 +1,5 @@
+package main;
+
 import data.EmgFile;
 import data.WaveFile;
 import org.jfree.chart.ChartFactory;
@@ -8,12 +10,14 @@ import org.jfree.chart.plot.XYPlot;
 import org.jfree.data.xy.XYDataset;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
+import override.SelectionMarker;
 import override.MyScrollableValueAxis;
 
-import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.swing.*;
 import javax.swing.filechooser.FileFilter;
+import java.awt.*;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemListener;
 import java.io.File;
@@ -22,6 +26,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
 import static utils.DataProcessingUtil.parseData;
@@ -29,13 +34,19 @@ import static utils.DataProcessingUtil.parseData;
 public class MainClass extends JFrame {
 
   private static final String GRAPH_HEADER = "Oscylogram";
+  private SelectionMarker selectionMarker;
   private EmgFile loadedEmgFile;
   private ChartPanel chartPanel;
   private JComboBox<String> comboBox;
   private WaveFile loadedWaveFile;
+  private JCheckBox checkBox;
 
   public static void main(String[] args) {
     new MainClass();
+  }
+
+  public void playSelection(int start, int finish) {
+    loadedWaveFile.play(start, finish);
   }
 
   private MainClass() {
@@ -50,9 +61,12 @@ public class MainClass extends JFrame {
 
   private void creteView() {
     chartPanel = new ChartPanel(null);
-    chartPanel.setPreferredSize(new java.awt.Dimension(700, 500));
+    chartPanel.setPreferredSize(new Dimension(700, 500));
     comboBox = new JComboBox<>();
     comboBox.addItemListener(comboItemListener());
+    checkBox = new JCheckBox();
+    checkBox.addChangeListener(e -> handleComboValue());
+    selectionMarker = new SelectionMarker(chartPanel, this);
   }
 
   private ItemListener comboItemListener() {
@@ -75,6 +89,7 @@ public class MainClass extends JFrame {
                 .addGroup(layout.createParallelGroup()
                     .addComponent(chartPanel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
                     .addComponent(comboBox, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
+                    .addComponent(checkBox, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
                 )
                 .addGroup(layout.createParallelGroup()
                     .addComponent(chartPanel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
@@ -89,6 +104,7 @@ public class MainClass extends JFrame {
                 .addGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(comboBox, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
+                        .addComponent(checkBox, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
                     )))
 
     );
@@ -164,13 +180,13 @@ public class MainClass extends JFrame {
   private void handleWave(File file) {
     try {
       loadedEmgFile = null;
-      loadedWaveFile = new WaveFile(AudioSystem.getAudioInputStream(file));
+      loadedWaveFile = new WaveFile(file);
       List<String> collect = IntStream.iterate(0, i -> i + 1).limit(loadedWaveFile.getFormat().getChannels()).mapToObj(String::valueOf).collect(toList());
       comboBox.setModel(new DefaultComboBoxModel<>(collect.toArray(new String[collect.size()])));
       comboBox.setSelectedIndex(0);
       comboBox.repaint();
       repaintWaveGraph();
-    } catch (IOException | UnsupportedAudioFileException e) {
+    } catch (IOException | UnsupportedAudioFileException | LineUnavailableException e) {
       e.printStackTrace();
     }
   }
@@ -216,11 +232,26 @@ public class MainClass extends JFrame {
         createDataset(),
         PlotOrientation.VERTICAL,
         true, false, false);
-    Integer selectedChannel = Integer.valueOf((String) comboBox.getSelectedItem());
-    fixAxes(chart, loadedWaveFile.getNumberOfSamplesForChannel(selectedChannel), -32768, 32767);
+    fixAxes(chart, loadedWaveFile.getNumberOfSamples(), -32768, 32767);
     chartPanel.setChart(chart);
     chartPanel.setMouseWheelEnabled(true);
+    handleComboValue();
     chartPanel.setRangeZoomable(false);
+  }
+
+  private void handleComboValue() {
+    if (checkBox.isSelected()) {
+      if (!Stream.of(chartPanel.getMouseListeners()).anyMatch(k -> k instanceof SelectionMarker)) {
+        chartPanel.addMouseListener(selectionMarker);
+      }
+      chartPanel.setDomainZoomable(false);
+    } else {
+      if (Stream.of(chartPanel.getMouseListeners()).anyMatch(k -> k instanceof SelectionMarker)) {
+        chartPanel.removeMouseListener(selectionMarker);
+      }
+      selectionMarker.clearSelection();
+      chartPanel.setDomainZoomable(true);
+    }
   }
 
   private void fixAxes(JFreeChart chart, double length, double lowerBound, double upperBound) {
@@ -244,13 +275,14 @@ public class MainClass extends JFrame {
     XYSeriesCollection dataset = new XYSeriesCollection();
     final XYSeries series = new XYSeries("");
     Integer selectedChannel = Integer.valueOf((String) comboBox.getSelectedItem());
-    for (int i = 1; i < loadedWaveFile.getNumberOfSamplesForChannel(selectedChannel); i++) {
+    for (int i = 1; i < loadedWaveFile.getNumberOfSamples(); i++) {
       series.add(i, loadedWaveFile.getSamples()[selectedChannel][i - 1]);
     }
     dataset.addSeries(series);
     return dataset;
   }
 
+  @SuppressWarnings("RedundantCast")
   private XYDataset createEmgDataset() {
     XYSeriesCollection dataset = new XYSeriesCollection();
     final XYSeries series = new XYSeries("");
