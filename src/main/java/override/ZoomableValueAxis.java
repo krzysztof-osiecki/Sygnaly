@@ -5,7 +5,7 @@ import lombok.Setter;
 import org.jfree.chart.axis.NumberAxis;
 import org.jfree.data.Range;
 
-public class MyScrollableValueAxis extends NumberAxis {
+public class ZoomableValueAxis extends NumberAxis {
   @Getter
   @Setter
   private double minLeft;
@@ -32,7 +32,7 @@ public class MyScrollableValueAxis extends NumberAxis {
     }
   }
 
-  public MyScrollableValueAxis(String label) {
+  public ZoomableValueAxis(String label) {
     super(label);
   }
 }

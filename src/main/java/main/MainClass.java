@@ -2,6 +2,7 @@ package main;
 
 import data.EmgFile;
 import data.WaveFile;
+import data.WaveRecorder;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
@@ -11,7 +12,7 @@ import org.jfree.data.xy.XYDataset;
 import org.jfree.data.xy.XYSeries;
 import org.jfree.data.xy.XYSeriesCollection;
 import override.SelectionMarker;
-import override.MyScrollableValueAxis;
+import override.ZoomableValueAxis;
 
 import javax.sound.sampled.LineUnavailableException;
 import javax.sound.sampled.UnsupportedAudioFileException;
@@ -34,14 +35,17 @@ import static utils.DataProcessingUtil.parseData;
 public class MainClass extends JFrame {
 
   private static final String GRAPH_HEADER = "Oscylogram";
+  private WaveRecorder waveRecorder;
   private SelectionMarker selectionMarker;
   private EmgFile loadedEmgFile;
   private ChartPanel chartPanel;
   private JComboBox<String> comboBox;
   private WaveFile loadedWaveFile;
   private JCheckBox checkBox;
+  private JButton startButton;
+  private JButton stopButton;
 
-  public static void main(String[] args) {
+  public static void main(String[] args) throws Exception {
     new MainClass();
   }
 
@@ -49,24 +53,38 @@ public class MainClass extends JFrame {
     loadedWaveFile.play(start, finish);
   }
 
-  private MainClass() {
+  private MainClass() throws Exception {
+    UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
     setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
     setTitle("Sygnaly - Krzysztof Osiecki");
+    waveRecorder = new WaveRecorder();
     createMenu();
-    creteView();
+    createView();
     createLayouts();
     setVisible(true);
     setSize(1400, 800);
   }
 
-  private void creteView() {
+  private void createView() {
     chartPanel = new ChartPanel(null);
     chartPanel.setPreferredSize(new Dimension(700, 500));
     comboBox = new JComboBox<>();
     comboBox.addItemListener(comboItemListener());
+    comboBox.setVisible(false);
     checkBox = new JCheckBox();
-    checkBox.addChangeListener(e -> handleComboValue());
+    checkBox.addActionListener(e -> handleComboValue());
+    checkBox.setVisible(false);
     selectionMarker = new SelectionMarker(chartPanel, this);
+    startButton = new JButton("Start recording");
+    startButton.addActionListener(al -> {
+      JFileChooser fc = new JFileChooser();
+      fc.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+      if (fc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
+        new Thread(() -> waveRecorder.start(fc.getSelectedFile())).start();
+      }
+    });
+    stopButton = new JButton("Stop recording");
+    stopButton.addActionListener(al -> waveRecorder.finish());
   }
 
   private ItemListener comboItemListener() {
@@ -90,6 +108,8 @@ public class MainClass extends JFrame {
                     .addComponent(chartPanel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
                     .addComponent(comboBox, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
                     .addComponent(checkBox, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
+                    .addComponent(startButton, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
+                    .addComponent(stopButton, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
                 )
                 .addGroup(layout.createParallelGroup()
                     .addComponent(chartPanel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
@@ -105,6 +125,8 @@ public class MainClass extends JFrame {
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(comboBox, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
                         .addComponent(checkBox, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
+                        .addComponent(startButton, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
+                        .addComponent(stopButton, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
                     )))
 
     );
@@ -139,7 +161,7 @@ public class MainClass extends JFrame {
       if (loadedEmgFile != null) {
         new HeaderInfoForm(this.loadedEmgFile.getHeader());
       } else if (loadedWaveFile != null) {
-        new HeaderInfoForm(this.loadedWaveFile.getFormat());
+        new HeaderInfoForm(this.loadedWaveFile);
       } else {
         //// TODO: 2016-05-02 pokaz dialog z info ze nie wybrano pliku
       }
@@ -154,9 +176,12 @@ public class MainClass extends JFrame {
         File file = fc.getSelectedFile();
         if (file.getPath().endsWith(".wav")) {
           handleWave(file);
+          checkBox.setVisible(true);
         } else {
           handleEmg(file);
+          checkBox.setVisible(false);
         }
+        comboBox.setVisible(true);
       }
       repaint();
     };
@@ -222,6 +247,7 @@ public class MainClass extends JFrame {
     fixAxes(chart, loadedEmgFile.getHeader().getDblLength(), -10000, 10000);
     chartPanel.setChart(chart);
     chartPanel.setMouseWheelEnabled(true);
+    chart.getXYPlot().setDomainPannable(true);
     chartPanel.setRangeZoomable(false);
   }
 
@@ -235,7 +261,7 @@ public class MainClass extends JFrame {
     fixAxes(chart, loadedWaveFile.getNumberOfSamples(), -32768, 32767);
     chartPanel.setChart(chart);
     chartPanel.setMouseWheelEnabled(true);
-    handleComboValue();
+    chart.getXYPlot().setDomainPannable(true);
     chartPanel.setRangeZoomable(false);
   }
 
@@ -256,14 +282,14 @@ public class MainClass extends JFrame {
 
   private void fixAxes(JFreeChart chart, double length, double lowerBound, double upperBound) {
     XYPlot plot = (XYPlot) chart.getPlot();
-    MyScrollableValueAxis myDomainAxis = new MyScrollableValueAxis(plot.getDomainAxis().getLabel());
+    ZoomableValueAxis myDomainAxis = new ZoomableValueAxis(plot.getDomainAxis().getLabel());
     myDomainAxis.setLowerBound(0);
     myDomainAxis.setUpperBound(length);
     myDomainAxis.setRange(0, length);
     myDomainAxis.setMinLeft(0);
     myDomainAxis.setMaxRight(length);
     plot.setDomainAxis(myDomainAxis);
-    MyScrollableValueAxis myRangeAxis = new MyScrollableValueAxis(plot.getRangeAxis().getLabel());
+    ZoomableValueAxis myRangeAxis = new ZoomableValueAxis(plot.getRangeAxis().getLabel());
     myRangeAxis.setLowerBound(lowerBound);
     myRangeAxis.setUpperBound(upperBound);
     myRangeAxis.setMinLeft(lowerBound);
@@ -295,3 +321,5 @@ public class MainClass extends JFrame {
     return dataset;
   }
 }
+
+

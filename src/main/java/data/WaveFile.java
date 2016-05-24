@@ -2,10 +2,8 @@ package data;
 
 
 import lombok.Data;
-import sun.tools.jar.resources.jar_sv;
 
 import javax.sound.sampled.*;
-import javax.swing.*;
 import java.io.File;
 import java.io.IOException;
 
@@ -66,7 +64,6 @@ public class WaveFile implements LineListener {
       audioStream.close();
       playCompleted = false;
     } catch (Exception e) {
-      JScrollBar scrollBar = new JScrollBar()
       System.out.printf("Something went wrong during audio play");
     }
   }
