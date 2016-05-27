@@ -162,8 +162,6 @@ public class MainClass extends JFrame {
         new HeaderInfoForm(this.loadedEmgFile.getHeader());
       } else if (loadedWaveFile != null) {
         new HeaderInfoForm(this.loadedWaveFile);
-      } else {
-        //// TODO: 2016-05-02 pokaz dialog z info ze nie wybrano pliku
       }
     };
   }

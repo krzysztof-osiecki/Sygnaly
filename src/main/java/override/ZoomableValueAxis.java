@@ -12,9 +12,11 @@ public class ZoomableValueAxis extends NumberAxis {
   @Getter
   @Setter
   private double maxRight;
+
+
   @Override
   public void resizeRange(double percent, double anchorValue) {
-  setRange(new Range(minLeft, maxRight));
+    setRange(new Range(minLeft, maxRight));
   }
 
   @Override
@@ -30,6 +32,17 @@ public class ZoomableValueAxis extends NumberAxis {
     } else {
       setAutoRange(true);
     }
+  }
+
+  @Override
+  public void pan(double percent) {
+    Range range = getRange();
+    if ((range.getUpperBound() >= maxRight && percent > 0) || (range.getLowerBound() <= minLeft && percent < 0)) return;
+    double length = range.getLength();
+    double adj = length * percent;
+    double lower = range.getLowerBound() + adj < minLeft ? minLeft : range.getLowerBound() + adj;
+    double upper = range.getUpperBound() + adj > maxRight ? maxRight : range.getUpperBound() + adj;
+    setRange(lower, upper);
   }
 
   public ZoomableValueAxis(String label) {
