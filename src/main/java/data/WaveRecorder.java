@@ -10,7 +10,7 @@ public class WaveRecorder {
 
   public void start(File wavFile) {
     try {
-      AudioFormat format = new AudioFormat((float) 16000, 8, 2, true, true);
+      AudioFormat format = new AudioFormat((float) 44100, 16, 2, true, true);
       DataLine.Info info = new DataLine.Info(TargetDataLine.class, format);
       if (!AudioSystem.isLineSupported(info)) {
         System.out.println("Line not supported");
