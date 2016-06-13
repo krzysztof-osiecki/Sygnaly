@@ -48,14 +48,29 @@ public class SelectionMarker extends MouseAdapter {
 
   @Override
   public void mouseReleased(MouseEvent e) {
-    markerEnd = getPosition(e);
-    updateMarker();
+  }
+
+  public void playSelection() {
     new Thread(() -> mainClass.playSelection(markerStart.intValue(), markerEnd.intValue())).start();
   }
 
   @Override
   public void mousePressed(MouseEvent e) {
-    markerStart = getPosition(e);
+    switch (mainClass.getSelectedItem()) {
+      case START:
+        markerStart = getPosition(e);
+        break;
+      case END:
+        markerEnd = getPosition(e);
+        break;
+      case NONE:
+        clearSelection();
+        break;
+      default:
+    }
+    if (!markerStart.equals(Double.NaN) && !markerEnd.equals(Double.NaN)) {
+      updateMarker();
+    }
   }
 
   public void clearSelection() {

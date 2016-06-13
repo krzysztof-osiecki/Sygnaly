@@ -1,8 +1,11 @@
 package main;
 
 import data.EmgFile;
+import data.SelectedItem;
 import data.WaveFile;
 import data.WaveRecorder;
+import lombok.Getter;
+import net.miginfocom.swing.MigLayout;
 import org.jfree.chart.ChartFactory;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.JFreeChart;
@@ -27,23 +30,22 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toList;
 import static utils.DataProcessingUtil.parseData;
 
+@Getter
 public class MainClass extends JFrame {
 
   private static final String GRAPH_HEADER = "Oscylogram";
+//  private final JPanel mainPanel;
   private WaveRecorder waveRecorder;
   private SelectionMarker selectionMarker;
   private EmgFile loadedEmgFile;
   private ChartPanel chartPanel;
   private JComboBox<String> comboBox;
   private WaveFile loadedWaveFile;
-  private JCheckBox checkBox;
-  private JButton startButton;
-  private JButton stopButton;
+  private SelectedItem selectedItem = SelectedItem.NONE;
 
   public static void main(String[] args) throws Exception {
     new MainClass();
@@ -54,40 +56,33 @@ public class MainClass extends JFrame {
   }
 
   private MainClass() throws Exception {
+    this.setLayout(new MigLayout());
     UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
     setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
     setTitle("Sygnaly - Krzysztof Osiecki");
     waveRecorder = new WaveRecorder();
     createMenu();
     createView();
-    createLayouts();
+    setExtendedState(JFrame.MAXIMIZED_BOTH);
+    setSize(new Dimension(1400, 1000));
     setVisible(true);
-    setSize(1400, 800);
   }
 
   private void createView() {
     chartPanel = new ChartPanel(null);
-    chartPanel.setPreferredSize(new Dimension(700, 500));
+    chartPanel.setLayout(new MigLayout());
+    chartPanel.setPreferredSize(new Dimension(1920, 1080));
+    add(chartPanel);
     comboBox = new JComboBox<>();
     comboBox.addItemListener(comboItemListener());
     comboBox.setVisible(false);
-    checkBox = new JCheckBox();
-    checkBox.addActionListener(e -> handleComboValue());
-    checkBox.setVisible(false);
+    add(comboBox);
     selectionMarker = new SelectionMarker(chartPanel, this);
-    startButton = new JButton("Start recording");
-    startButton.addActionListener(al -> {
-      JFileChooser fc = new JFileChooser();
-      fc.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
-      if (fc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
-        new Thread(() -> waveRecorder.start(fc.getSelectedFile())).start();
-      }
-    });
-    stopButton = new JButton("Stop recording");
-    stopButton.addActionListener(al -> waveRecorder.finish());
+    chartPanel.addMouseListener(selectionMarker);
   }
 
   private ItemListener comboItemListener() {
+
     return ae -> {
       if (loadedWaveFile != null) {
         repaintWaveGraph();
@@ -96,40 +91,6 @@ public class MainClass extends JFrame {
       }
       repaint();
     };
-  }
-
-  private void createLayouts() {
-    GroupLayout layout = new GroupLayout(getContentPane());
-    getContentPane().setLayout(layout);
-    layout.setHorizontalGroup(
-        layout.createSequentialGroup()
-            .addGroup(layout.createSequentialGroup()
-                .addGroup(layout.createParallelGroup()
-                    .addComponent(chartPanel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
-                    .addComponent(comboBox, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
-                    .addComponent(checkBox, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
-                    .addComponent(startButton, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
-                    .addComponent(stopButton, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
-                )
-                .addGroup(layout.createParallelGroup()
-                    .addComponent(chartPanel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
-                )
-            )
-    );
-    layout.setVerticalGroup(
-        layout.createParallelGroup(GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
-                .addGroup(layout.createParallelGroup(GroupLayout.Alignment.CENTER)
-                    .addComponent(chartPanel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE))
-                .addGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING)
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(comboBox, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
-                        .addComponent(checkBox, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
-                        .addComponent(startButton, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
-                        .addComponent(stopButton, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE)
-                    )))
-
-    );
   }
 
   private void createMenu() {
@@ -148,6 +109,28 @@ public class MainClass extends JFrame {
     menuBar.add(menu2);
     //item otwierania pliku
     menuItem(menu2, "Show header", showHeaderInfoListener());
+
+    JMenu menu3 = new JMenu("Play");
+    menuBar.add(menu3);
+    menuItem(menu3, "Selection start", al -> selectedItem = SelectedItem.START);
+    menuItem(menu3, "Selection end", al -> selectedItem = SelectedItem.END);
+    menuItem(menu3, "Clear selection", al -> {
+      selectedItem = SelectedItem.NONE;
+      selectionMarker.clearSelection();
+    });
+    menuItem(menu3, "Play selection", al -> selectionMarker.playSelection());
+
+    JMenu menu4 = new JMenu("Record");
+    menuBar.add(menu4);
+    menuItem(menu4, "Start recording", al -> {
+      JFileChooser fc = new JFileChooser();
+      fc.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+      if (fc.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
+        new Thread(() -> waveRecorder.start(fc.getSelectedFile())).start();
+      }
+    });
+
+    menuItem(menu4, "Stop recording", al -> waveRecorder.finish());
   }
 
   private void menuItem(JMenu menu, String name, ActionListener actionListener) {
@@ -174,10 +157,8 @@ public class MainClass extends JFrame {
         File file = fc.getSelectedFile();
         if (file.getPath().endsWith(".wav")) {
           handleWave(file);
-          checkBox.setVisible(true);
         } else {
           handleEmg(file);
-          checkBox.setVisible(false);
         }
         comboBox.setVisible(true);
       }
@@ -204,7 +185,9 @@ public class MainClass extends JFrame {
     try {
       loadedEmgFile = null;
       loadedWaveFile = new WaveFile(file);
-      List<String> collect = IntStream.iterate(0, i -> i + 1).limit(loadedWaveFile.getFormat().getChannels()).mapToObj(String::valueOf).collect(toList());
+      List<String> collect =
+          IntStream.iterate(0, i -> i + 1).limit(loadedWaveFile.getFormat().getChannels()).mapToObj(String::valueOf)
+              .collect(toList());
       comboBox.setModel(new DefaultComboBoxModel<>(collect.toArray(new String[collect.size()])));
       comboBox.setSelectedIndex(0);
       comboBox.repaint();
@@ -261,21 +244,6 @@ public class MainClass extends JFrame {
     chartPanel.setMouseWheelEnabled(true);
     chart.getXYPlot().setDomainPannable(true);
     chartPanel.setRangeZoomable(false);
-  }
-
-  private void handleComboValue() {
-    if (checkBox.isSelected()) {
-      if (!Stream.of(chartPanel.getMouseListeners()).anyMatch(k -> k instanceof SelectionMarker)) {
-        chartPanel.addMouseListener(selectionMarker);
-      }
-      chartPanel.setDomainZoomable(false);
-    } else {
-      if (Stream.of(chartPanel.getMouseListeners()).anyMatch(k -> k instanceof SelectionMarker)) {
-        chartPanel.removeMouseListener(selectionMarker);
-      }
-      selectionMarker.clearSelection();
-      chartPanel.setDomainZoomable(true);
-    }
   }
 
   private void fixAxes(JFreeChart chart, double length, double lowerBound, double upperBound) {
