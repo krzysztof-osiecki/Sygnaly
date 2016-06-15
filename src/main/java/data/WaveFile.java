@@ -15,6 +15,7 @@ public class WaveFile implements LineListener {
   private byte[] waveData;
   private int[][] samples;
   private boolean playCompleted;
+  private Clip audioClip;
 
   public WaveFile(File file) throws IOException, UnsupportedAudioFileException, LineUnavailableException {
     this.loadedWaveFile = AudioSystem.getAudioInputStream(file);
@@ -22,7 +23,7 @@ public class WaveFile implements LineListener {
     int frameLength = (int) loadedWaveFile.getFrameLength();
     int frameSize = loadedWaveFile.getFormat().getFrameSize();
     waveData = new byte[frameLength * frameSize];
-    int result = 0;
+    int result;
     try {
       result = loadedWaveFile.read(waveData);
     } catch (IOException e) {
@@ -50,7 +51,7 @@ public class WaveFile implements LineListener {
       AudioInputStream audioStream = AudioSystem.getAudioInputStream(file);
       AudioFormat format = audioStream.getFormat();
       DataLine.Info info = new DataLine.Info(Clip.class, format);
-      Clip audioClip = (Clip) AudioSystem.getLine(info);
+      audioClip = (Clip) AudioSystem.getLine(info);
       audioClip.open(audioStream);
       audioClip.setFramePosition(from);
       audioClip.addLineListener(this);
@@ -60,8 +61,6 @@ public class WaveFile implements LineListener {
           audioClip.stop();
         }
       }
-      audioClip.close();
-      audioStream.close();
       playCompleted = false;
     } catch (Exception e) {
       System.out.printf("Something went wrong during audio play");
@@ -85,6 +84,18 @@ public class WaveFile implements LineListener {
     LineEvent.Type type = event.getType();
     if (type == LineEvent.Type.STOP) {
       playCompleted = true;
+    }
+  }
+
+  public void pause() {
+    int framePosition = audioClip.getFramePosition();
+    if (audioClip.isActive()) {
+      audioClip.stop();
+    } else {
+      new Thread(() -> {
+        audioClip.setFramePosition(framePosition);
+        audioClip.start();
+      }).start();
     }
   }
 }

@@ -38,7 +38,7 @@ import static utils.DataProcessingUtil.parseData;
 public class MainClass extends JFrame {
 
   private static final String GRAPH_HEADER = "Oscylogram";
-//  private final JPanel mainPanel;
+  //  private final JPanel mainPanel;
   private WaveRecorder waveRecorder;
   private SelectionMarker selectionMarker;
   private EmgFile loadedEmgFile;
@@ -72,11 +72,36 @@ public class MainClass extends JFrame {
     chartPanel = new ChartPanel(null);
     chartPanel.setLayout(new MigLayout());
     chartPanel.setPreferredSize(new Dimension(1920, 1080));
-    add(chartPanel);
+    chartPanel.setMaximumDrawHeight(10000);
+    chartPanel.setMaximumDrawWidth(10000);
     comboBox = new JComboBox<>();
     comboBox.addItemListener(comboItemListener());
-    comboBox.setVisible(false);
-    add(comboBox);
+    JRadioButton start = new JRadioButton("Start selection");
+    JRadioButton stop = new JRadioButton("End selection");
+    JButton clear  = new JButton("Clear selection");
+    start.addActionListener(al -> {
+      selectedItem = start.isSelected() ? SelectedItem.START : SelectedItem.NONE;
+      stop.setSelected(false);
+    });
+    stop.addActionListener(al -> {
+      selectedItem = stop.isSelected() ? SelectedItem.END : SelectedItem.NONE;
+      start.setSelected(false);
+    });
+    clear.addActionListener(al -> selectionMarker.clearSelection());
+    JButton play = new JButton("Play");
+    play.addActionListener(al -> selectionMarker.playSelection());
+    JButton pause = new JButton("Pause");
+    pause.addActionListener(al -> {
+      loadedWaveFile.pause();
+      pause.setText(pause.getText().equals("Pause") ? "Resume" : "Pause");
+    });
+    add(chartPanel, "cell 0 0 4 1");
+    add(comboBox, "cell 0 1 1 1");
+    add(start, "cell 0 2 1 1");
+    add(play, "cell 3 2 1 1");
+    add(stop, "cell 0 3 1 1");
+    add(pause, "cell 3 3 1 1");
+    add(clear, "cell 3 4 1 1");
     selectionMarker = new SelectionMarker(chartPanel, this);
     chartPanel.addMouseListener(selectionMarker);
   }
@@ -109,16 +134,6 @@ public class MainClass extends JFrame {
     menuBar.add(menu2);
     //item otwierania pliku
     menuItem(menu2, "Show header", showHeaderInfoListener());
-
-    JMenu menu3 = new JMenu("Play");
-    menuBar.add(menu3);
-    menuItem(menu3, "Selection start", al -> selectedItem = SelectedItem.START);
-    menuItem(menu3, "Selection end", al -> selectedItem = SelectedItem.END);
-    menuItem(menu3, "Clear selection", al -> {
-      selectedItem = SelectedItem.NONE;
-      selectionMarker.clearSelection();
-    });
-    menuItem(menu3, "Play selection", al -> selectionMarker.playSelection());
 
     JMenu menu4 = new JMenu("Record");
     menuBar.add(menu4);

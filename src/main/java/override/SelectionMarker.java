@@ -33,7 +33,7 @@ public class SelectionMarker extends MouseAdapter {
       if (markerEnd > markerStart) {
         marker = new IntervalMarker(markerStart, markerEnd);
         marker.setPaint(new Color(0x94, 0x20, 0x00, 0x80));
-        marker.setAlpha(0.5f);
+        marker.setAlpha(0.7f);
         ((XYPlot) panel.getChart().getPlot()).addDomainMarker(marker, Layer.BACKGROUND);
       }
     }
