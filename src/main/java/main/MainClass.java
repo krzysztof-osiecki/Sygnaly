@@ -51,8 +51,8 @@ public class MainClass extends JFrame {
     new MainClass();
   }
 
-  public void playSelection(int start, int finish) {
-    loadedWaveFile.play(start, finish);
+  public void playSelection(int start, int finish, SelectionMarker marker) {
+    loadedWaveFile.play(start, finish, marker);
   }
 
   private MainClass() throws Exception {

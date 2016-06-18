@@ -1,9 +1,11 @@
 package override;
 
+import lombok.Getter;
 import main.MainClass;
 import org.jfree.chart.ChartPanel;
 import org.jfree.chart.plot.IntervalMarker;
 import org.jfree.chart.plot.Marker;
+import org.jfree.chart.plot.ValueMarker;
 import org.jfree.chart.plot.XYPlot;
 import org.jfree.ui.Layer;
 
@@ -13,12 +15,14 @@ import java.awt.event.MouseEvent;
 import java.awt.geom.Point2D;
 import java.awt.geom.Rectangle2D;
 
+@Getter
 public class SelectionMarker extends MouseAdapter {
   private Marker marker;
   private Double markerStart = Double.NaN;
   private Double markerEnd = Double.NaN;
   private ChartPanel panel;
   private MainClass mainClass;
+  private ValueMarker valueMarker;
 
   public SelectionMarker(ChartPanel chartPanel, MainClass mainClass) {
     this.panel = chartPanel;
@@ -51,7 +55,7 @@ public class SelectionMarker extends MouseAdapter {
   }
 
   public void playSelection() {
-    new Thread(() -> mainClass.playSelection(markerStart.intValue(), markerEnd.intValue())).start();
+    new Thread(() -> mainClass.playSelection(markerStart.intValue(), markerEnd.intValue(), this)).start();
   }
 
   @Override
@@ -80,5 +84,20 @@ public class SelectionMarker extends MouseAdapter {
     marker = null;
     markerStart = Double.NaN;
     markerEnd = Double.NaN;
+  }
+
+  public void addValueMarker(int framePosition) {
+    valueMarker = new ValueMarker(framePosition);  // position is the value on the axis
+    valueMarker.setPaint(Color.black);
+    XYPlot plot = (XYPlot) panel.getChart().getPlot();
+    plot.addDomainMarker(valueMarker, Layer.BACKGROUND);
+  }
+
+  public void refreshValueMarker(int framePosition) {
+    valueMarker.setValue(framePosition);
+  }
+
+  public void removeValueMarker() {
+    ((XYPlot) panel.getChart().getPlot()).removeDomainMarker(valueMarker, Layer.BACKGROUND);
   }
 }

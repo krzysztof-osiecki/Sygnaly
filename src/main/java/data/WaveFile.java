@@ -2,8 +2,17 @@ package data;
 
 
 import lombok.Data;
+import override.SelectionMarker;
 
-import javax.sound.sampled.*;
+import javax.sound.sampled.AudioFormat;
+import javax.sound.sampled.AudioInputStream;
+import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.Clip;
+import javax.sound.sampled.DataLine;
+import javax.sound.sampled.LineEvent;
+import javax.sound.sampled.LineListener;
+import javax.sound.sampled.LineUnavailableException;
+import javax.sound.sampled.UnsupportedAudioFileException;
 import java.io.File;
 import java.io.IOException;
 
@@ -16,6 +25,8 @@ public class WaveFile implements LineListener {
   private int[][] samples;
   private boolean playCompleted;
   private Clip audioClip;
+  private int to;
+  private SelectionMarker marker;
 
   public WaveFile(File file) throws IOException, UnsupportedAudioFileException, LineUnavailableException {
     this.loadedWaveFile = AudioSystem.getAudioInputStream(file);
@@ -46,8 +57,11 @@ public class WaveFile implements LineListener {
     }
   }
 
-  public void play(int from, int to) {
+  public void play(int from, int to, SelectionMarker marker) {
+    this.to = to;
+    this.marker = marker;
     try {
+      marker.addValueMarker(from);
       AudioInputStream audioStream = AudioSystem.getAudioInputStream(file);
       AudioFormat format = audioStream.getFormat();
       DataLine.Info info = new DataLine.Info(Clip.class, format);
@@ -56,11 +70,8 @@ public class WaveFile implements LineListener {
       audioClip.setFramePosition(from);
       audioClip.addLineListener(this);
       audioClip.start();
-      while (!playCompleted) {
-        if (audioClip.getFramePosition() >= to) {
-          audioClip.stop();
-        }
-      }
+      monitorPlay();
+      marker.removeValueMarker();
       playCompleted = false;
     } catch (Exception e) {
       System.out.printf("Something went wrong during audio play");
@@ -95,7 +106,21 @@ public class WaveFile implements LineListener {
       new Thread(() -> {
         audioClip.setFramePosition(framePosition);
         audioClip.start();
+        marker.addValueMarker(audioClip.getFramePosition());
+        monitorPlay();
+        marker.removeValueMarker();
+        playCompleted = false;
       }).start();
+    }
+  }
+
+  private void monitorPlay() {
+    while (!playCompleted) {
+      int newFramePosition = audioClip.getFramePosition();
+      marker.refreshValueMarker(newFramePosition);
+      if (newFramePosition >= to) {
+        audioClip.stop();
+      }
     }
   }
 }
